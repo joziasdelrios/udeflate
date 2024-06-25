@@ -69,22 +69,31 @@ static int fetch_bits(int bits_needed)
 	return 0;
 }
 
-static int read_next_byte()
+static int read_next_short()
 {
 	int ret;
 
-	/* Align i_in to byte boundary */
-	int offset = (i_in + 7) & 0x7;
-	in_bits >>= offset;
-	i_in &= 0x7;
-	n_in -= 8;
+	/* Align i_in to byte boundary, while consuming whole bytes */
+	int remove_bits = (-i_in) & 0x07;
+	in_bits >>= i_in + remove_bits;
+	n_in -= i_in + remove_bits;
+	n_in = 0;
+	
+	/* Read up to bytes needed */
+	int n = 2 - n_in/8;
+	for(int i = 0; i < n; i++)
+	{
+		if((ret = deflate_read_byte()) < 0)
+			return ret;
 
-	if((ret = fetch_bits(8)) < 0)
-		return ret;
-
-	ret = (in_bits >> i_in) & 0xff;
-	i_in += 8;
-
+		/* Put them last as most significant bits */
+		in_bits |= ret << n_in;
+		n_in += 8;
+	}
+	/* in_num is supposed to be 16, read and clear (consume) */
+	ret = in_bits & 0xFFFF;
+	in_bits = 0;
+	i_in = 0;
 	return ret;
 }
 
@@ -199,10 +208,10 @@ static int decode_symbol(uint16_t code)
 
 static int read_non_compressed_block()
 {
-	uint8_t len = read_next_byte();
-	uint8_t nlen = read_next_byte();
+	uint16_t len = read_next_short();
+	uint16_t nlen = ~read_next_short();
 
-	if(len != ~nlen)
+	if(len != nlen )
 		return -EINVAL;
 
 	return deflate_write_input_bytes(len);
