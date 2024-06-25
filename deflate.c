@@ -77,7 +77,7 @@ static int read_next_short()
 	int remove_bits = (-i_in) & 0x07;
 	in_bits >>= i_in + remove_bits;
 	n_in -= i_in + remove_bits;
-	n_in = 0;
+	i_in = 0;
 	
 	/* Read up to bytes needed */
 	int n = 2 - n_in/8;
@@ -93,7 +93,7 @@ static int read_next_short()
 	/* in_num is supposed to be 16, read and clear (consume) */
 	ret = in_bits & 0xFFFF;
 	in_bits = 0;
-	i_in = 0;
+	n_in = 0;
 	return ret;
 }
 
